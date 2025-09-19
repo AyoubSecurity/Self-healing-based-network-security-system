@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            padding: 5px 0;
+        }
+        .bell-icon {
+            font-size: 24px;
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+            display: none;
+        }
+        .notification-dropdown {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            z-index: 1000;
+        }
+        .notification-dropdown ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .notification-dropdown li {
+            padding: 5px 0;
+        }
+        .alert-window {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            z-index: 1000;
+        }
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .alerts-controls {
+            margin-bottom: 10px;
+        }
+        .button-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        #themeToggleBtn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+        }
+        .notification-bell:hover,
+        #themeToggleBtn:hover {
+            opacity: 0.8;
+        }
+        .header-right {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+        #themeToggleBtn, .notification-bell {
+            flex: 0 0 auto;
+        }
+        #alerts-section .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=notifications" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=dark_mode,light_mode,notifications" />
+</head>
+<body class="theme-light">
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Self-Healing NBSS</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="#scan-results-section">Scan Results</a></li>
+                    <li><a href="#traffic-monitoring-section">Traffic Monitor</a></li>
+                    <li><a href="#blocked-lists-section">Blocked Lists</a></li>
+                    <li><a href="#blocked-ports-section">Blocked Ports</a></li>
+                    <li><a href="#whitelist-section">Whitelist</a></li>
+                    <li><a href="#specified-ports-section">Specified Ports</a></li>
+                    <li><a href="#settings-section">Scan Settings</a></li>
+                    <li><a href="#backup-section">Backup Info</a></li>
+                    <li><a href="#graphs-section">Graphs</a></li>
+                    <li><a href="#alerts-section">Alerts</a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Network Scanner Dashboard</h1>
+                <div class="header-right">
+                    <div>
+                        <button id="themeToggleBtn" title="Toggle Theme" aria-label="Toggle Theme">
+                            <span class="material-symbols-outlined light-mode-icon" style="display: none;">light_mode</span>
+                            <span class="material-symbols-outlined dark-mode-icon">dark_mode</span>
+                        </button>
+                    </div>
+                    <div class="notification-bell" id="notificationBell">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="badge" id="unseenCount"></span>
+                    </div>
+                </div>
+            </header>
+            <div class="notification-dropdown" id="notificationDropdown" style="display: none;">
+                <h3>Recent Alerts</h3>
+                <ul id="recentAlerts"></ul>
+                <a href="#alerts-section">View All Alerts</a>
+            </div>
+
+            <div class="status-bar card">
+                <p>Scan Status: <strong id="scanStatus">Unknown</strong></p>
+                <p>Currently Scanning: <strong id="currentIp">N/A</strong></p>
+                <p>Next Scan In: <strong id="nextScanIn">--</strong> seconds</p>
+                <p>Total Packets: <strong id="totalPackets">0</strong> (Threshold: <strong id="threshold">0</strong>)</p>
+                <p>Auto-Block Non-Whitelisted: <label class="switch" title="Enable/Disable Automatic Blocking">
+                    <input type="checkbox" id="autoBlockToggle">
+                    <span class="slider round"></span>
+                </label></p>
+                <p>Auto-Block IPs Exceeding Threshold: <label class="switch" title="Enable/Disable Automatic IP Blocking">
+                    <input type="checkbox" id="autoBlockIpToggle">
+                    <span class="slider round"></span>
+                </label></p>
+                <p>
+                    Update Threshold: 
+                    <input type="number" id="newThreshold" min="1" required placeholder="Enter new threshold">
+                    <button id="updateThresholdBtn" class="button-primary">Update</button>
+                </p>
+                <button id="startScanBtn" class="button-primary">Start Scan</button>
+                <button id="stopScanBtn" class="button-danger">Stop Scan</button>
+            </div>
+            
+            <section id="scan-results-section" class="dashboard-section card">
+                <h2>Scan Results</h2>
+                <div class="table-container">
+                    <table id="scanResults">
+                        <thead>
+                            <tr>
+                                <th>IP Address</th>
+                                <th>Status</th>
+                                <th>OS</th>
+                                <th>MAC Address</th>
+                                <th>Ports</th>
+                                <th title="Time taken for this specific host scan">Test Time</th>
+                                <th>Guest</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="8">Loading scan results...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="traffic-monitoring-section" class="dashboard-section card">
+                <h2>Traffic Monitoring</h2>
+                <div class="traffic-details">
+                    <p>Packet Counts per IP:</p>
+                    <ul id="packetCounts">
+                        <li>Loading packet counts...</li>
+                    </ul>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trafficChart"></canvas>
+                </div>
+            </section>
+
+            <section id="blocked-lists-section" class="dashboard-section card">
+                <h2>Blocked Lists</h2>
+                <div class="blocked-lists">
+                    <div class="blocked-mac">
+                        <h3>Blocked MAC Addresses</h3>
+                        <ul id="blockedMacList">
+                            <li>Loading blocked MAC addresses...</li>
+                        </ul>
+                        <form id="addBlockedMacForm" class="inline-form">
+                            <label for="mac">MAC Address:</label>
+                            <input type="text" id="mac" name="mac" placeholder="AA:BB:CC:DD:EE:FF" required>
+                            <button type="submit" class="button-primary">Add MAC</button>
+                        </form>
+                        <button id="clearBlockedMacBtn" class="button-danger">Clear All Blocked MACs</button>
+                    </div>
+                    <div class="blocked-ip">
+                        <h3>Blocked IP Addresses</h3>
+                        <ul id="blockedIpList">
+                            <li>Loading blocked IP addresses...</li>
+                        </ul>
+                        <form id="addBlockedIpForm" class="inline-form">
+                            <label for="ip">IP Address:</label>
+                            <input type="text" id="ip" name="ip" placeholder="192.168.1.100" required>
+                            <button type="submit" class="button-primary">Add IP</button>
+                        </form>
+                        <button id="clearBlockedIpBtn" class="button-danger">Clear All Blocked IPs</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="blocked-ports-section" class="dashboard-section card">
+                <h2>Blocked Ports</h2>
+                <ul id="blockedPortsList">
+                    <li>Loading blocked ports...</li>
+                </ul>
+                <form id="addBlockedPortForm" class="inline-form">
+                    <label for="port">Port Number:</label>
+                    <input type="number" id="port" name="port" placeholder="80" required min="1" max="65535">
+                    <button type="submit" class="button-primary">Add Port</button>
+                </form>
+                <button id="clearBlockedPortsBtn" class="button-danger">Clear All Blocked Ports</button>
+            </section>
+
+            <section id="specified-ports-section" class="dashboard-section card">
+                <h2>Specified Ports Management</h2>
+                <form id="specifiedPortsForm" class="inline-form">
+                    <label for="port">Port Number:</label>
+                    <input type="number" id="port" name="port" placeholder="80" required min="1" max="65535">
+                    <button type="submit" class="button-primary">Add Port</button>
+                </form>
+                <button id="clearSpecifiedPortsBtn" class="button-danger">Clear All Specified Ports</button>
+                <p>Specified Ports:</p>
+                <ul id="specifiedPortsList">
+                    <li>Loading specified ports...</li>
+                </ul>
+            </section>
+
+            <section id="graphs-section" class="dashboard-section card">
+                <h2>Graphs & Trends</h2>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <p>OS Distribution (Current Scan)</p>
+                        <canvas id="osDistributionChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <p>Port Status (Current Scan)</p>
+                        <canvas id="portStatusChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="whitelist-section" class="dashboard-section card">
+                <h2>Whitelist Management</h2>
+                <form id="whitelistForm" class="inline-form">
+                    <label for="mac">MAC Address:</label>
+                    <input type="text" id="mac" name="mac" placeholder="AA:BB:CC:DD:EE:FF" required>
+                    <button type="submit" class="button-primary">Add to Whitelist</button>
+                </form>
+                <p>Whitelisted Devices:</p>
+                <ul id="whitelist">
+                    <li>Loading whitelist...</li>
+                </ul>
+            </section>
+
+            <section id="settings-section" class="dashboard-section card">
+                <h2>Scan Settings</h2>
+                <form id="scanSettingsForm">
+                    <div class="form-grid">
+                        <label for="subnet">Subnet:</label>
+                        <input type="text" id="subnet" name="subnet" value="{{ subnet }}" title="e.g., 192.168.1.0">
+                        <label for="start_ip">Start IP Suffix:</label>
+                        <input type="number" id="start_ip" name="start_ip" value="{{ start_ip }}" min="0" max="255" title="Last octet start (e.g., 0)">
+                        <label for="end_ip">End IP Suffix:</label>
+                        <input type="number" id="end_ip" name="end_ip" value="{{ end_ip }}" min="0" max="255" title="Last octet end (e.g., 255)">
+                        <label for="start_port">Start Port:</label>
+                        <input type="number" id="start_port" name="start_port" value="{{ start_port }}" min="1" max="65535" title="Start port (e.g., 1)">
+                        <label for="end_port">End Port:</label>
+                        <input type="number" id="end_port" name="end_port" value="{{ end_port }}" min="1" max="65535" title="End port (e.g., 1000)">
+                    </div>
+                    <button type="submit" class="button-primary">Update Settings</button>
+                </form>
+            </section>
+
+            <section id="backup-section" class="dashboard-section card">
+                <h2>Backup Info</h2>
+                <p>Next Backup Check In: <strong id="nextBackupCheck">--</strong> seconds</p>
+                <p>Files Monitored:</p>
+                <ul id="backupFiles">
+                    <li>Loading backup info...</li>
+                </ul>
+            </section>
+
+            <section id="alerts-section" class="dashboard-section card">
+                <h2>Alerts</h2>
+                <div class="alerts-controls">
+                    <button id="markAllSeenBtn" class="button-primary">Mark All as Seen</button>
+                </div>
+                <div class="table-container">
+                    <table id="alertsTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Type</th>
+                                <th>Details</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="4">Loading alerts...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="alertWindow" class="alert-window">
+        <div class="alert-header">
+            <span id="alertMessage"></span>
+            <button class="close-btn">×</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM content loaded');
+            const POLL_INTERVAL = 10000;
+            const MESSAGE_TIMEOUT = 5000;
+
+            let isPolling = true;
+            let rateLimitBackoff = 0;
+            let messageTimeoutId = null;
+            let charts = {};
+            let lastAlertId = 0;
+            let specifiedPorts = new Set();
+
+            const elements = {
+                message: document.getElementById('message'),
+                messageArea: document.getElementById('messageArea'),
+                currentIp: document.getElementById('currentIp'),
+                nextScanIn: document.getElementById('nextScanIn'),
+                totalPackets: document.getElementById('totalPackets'),
+                threshold: document.getElementById('threshold'),
+                scanResultsTbody: document.querySelector('#scanResults tbody'),
+                packetCountsUl: document.getElementById('packetCounts'),
+                blockedMacUl: document.getElementById('blockedMacList'),
+                blockedIpUl: document.getElementById('blockedIpList'),
+                blockedPortsUl: document.getElementById('blockedPortsList'),
+                specifiedPortsUl: document.getElementById('specifiedPortsList'),
+                addBlockedMacForm: document.getElementById('addBlockedMacForm'),
+                addBlockedIpForm: document.getElementById('addBlockedIpForm'),
+                addBlockedPortForm: document.getElementById('addBlockedPortForm'),
+                addSpecifiedPortForm: document.getElementById('specifiedPortsForm'),
+                backupFilesUl: document.getElementById('backupFiles'),
+                nextBackupCheck: document.getElementById('nextBackupCheck'),
+                whitelistUl: document.getElementById('whitelist'),
+                scanSettingsForm: document.getElementById('scanSettingsForm'),
+                whitelistForm: document.getElementById('whitelistForm'),
+                themeToggleBtn: document.getElementById('themeToggleBtn'),
+                autoBlockToggle: document.getElementById('autoBlockToggle'),
+                autoBlockIpToggle: document.getElementById('autoBlockIpToggle'),
+                trafficChartCanvas: document.getElementById('trafficChart'),
+                osDistributionChartCanvas: document.getElementById('osDistributionChart'),
+                portStatusChartCanvas: document.getElementById('portStatusChart'),
+                scanStatus: document.getElementById('scanStatus'),
+                startScanBtn: document.getElementById('startScanBtn'),
+                stopScanBtn: document.getElementById('stopScanBtn'),
+                notificationBell: document.getElementById('notificationBell'),
+                unseenCount: document.getElementById('unseenCount'),
+                notificationDropdown: document.getElementById('notificationDropdown'),
+                recentAlerts: document.getElementById('recentAlerts'),
+                alertsTbody: document.querySelector('#alertsTable tbody'),
+                markAllSeenBtn: document.getElementById('markAllSeenBtn'),
+                alertWindow: document.getElementById('alertWindow'),
+                alertMessage: document.getElementById('alertMessage'),
+                closeBtn: document.querySelector('.close-btn'),
+                clearBlockedMacBtn: document.getElementById('clearBlockedMacBtn'),
+                clearBlockedIpBtn: document.getElementById('clearBlockedIpBtn'),
+                clearBlockedPortsBtn: document.getElementById('clearBlockedPortsBtn'),
+                clearSpecifiedPortsBtn: document.getElementById('clearSpecifiedPortsBtn'),
+                updateThresholdBtn: document.getElementById('updateThresholdBtn'),
+                newThreshold: document.getElementById('newThreshold')
+            };
+
+            function normalizeMac(mac) {
+                mac = mac.toUpperCase().replace(/-/g, ':');
+                const parts = mac.split(':');
+                if (parts.length === 6 && parts.every(part => part.length === 2 && /^[0-9A-F]{2}$/.test(part))) {
+                    return parts.join(':');
+                }
+                return null;
+            }
+
+            function formatPacketCount(count) {
+                if (count < 1000) return count.toString();
+                const thousands = count / 1000;
+                return thousands % 1 === 0 ? thousands.toFixed(0) + 'K' : thousands.toFixed(1) + 'K';
+            }
+
+            async function safeFetch(url, options = {}) {
+                if (rateLimitBackoff > Date.now()) {
+                    console.warn('Fetch skipped due to rate limit backoff.');
+                    return null;
+                }
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429) {
+                        rateLimitBackoff = Date.now() + 60000;
+                        showMessage('Too many requests. Pausing updates for 60 seconds...', 'error');
+                        return null;
+                    }
+                    if (response.status === 401 || response.redirected && response.url.includes('/login')) {
+                        isPolling = false;
+                        showMessage('Session expired or unauthorized. Redirecting to login...', 'error');
+                        setTimeout(() => window.location.href = '/login', 2000);
+                        return null;
+                    }
+                    if (!response.ok) {
+                        let errorMsg = `HTTP error ${response.status}`;
+                        try {
+                            const errorData = await response.json();
+                            errorMsg = errorData.message || errorMsg;
+                        } catch (e) {}
+                        throw new Error(errorMsg);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error(`Error fetching ${url}:`, error);
+                    const endpointName = url.split('/').pop().split('?')[0];
+                    showMessage(`Error fetching ${endpointName}: ${error.message}`, 'error');
+                    return null;
+                }
+            }
+
+            function showMessage(msg, type = 'success') {
+                if (!elements.message) return;
+                elements.message.textContent = msg;
+                elements.message.className = type;
+                elements.message.style.display = 'block';
+                if (messageTimeoutId) clearTimeout(messageTimeoutId);
+                messageTimeoutId = setTimeout(() => {
+                    if (elements.message) {
+                        elements.message.textContent = '';
+                        elements.message.className = '';
+                        elements.message.style.display = 'none';
+                    }
+                }, MESSAGE_TIMEOUT);
+            }
+
+            function updateScanResultsUI(data) {
+                if (!data || !data.ips || !elements.scanResultsTbody) return;
+                elements.scanResultsTbody.innerHTML = '';
+                if (data.ips.length === 0) {
+                    elements.scanResultsTbody.innerHTML = '<tr><td colspan="8">No devices found in the latest scan.</td></tr>';
+                    return;
+                }
+                const osCounts = {};
+                let openPorts = 0;
+                let closedPorts = 0;
+                data.ips.forEach(ip => {
+                    const row = elements.scanResultsTbody.insertRow();
+                    row.innerHTML = `
+                        <td>${ip.ip_address || 'N/A'}</td>
+                        <td>${ip.status || 'N/A'}</td>
+                        <td>${ip.os || 'Unknown'}</td>
+                        <td>${ip.mac_address || 'N/A'}</td>
+                        <td>${(ip.ports && ip.ports.length > 0) ? ip.ports.map(p => `${p.port_number} (${p.status})`).join(', ') : 'None'}</td>
+                        <td>${ip.test_time || '--'}</td>
+                        <td>${ip.is_guest ? 'Yes' : 'No'}</td>
+                        <td>
+                            ${ip.mac_address ? `<button class="button-danger" onclick="blockDevice('MAC', '${ip.mac_address}')" title="Block this MAC Address">Block MAC</button>` : ''}
+                        </td>
+                    `;
+                    const os = ip.os || 'Unknown';
+                    osCounts[os] = (osCounts[os] || 0) + 1;
+                    if (ip.ports) {
+                        ip.ports.forEach(port => {
+                            if (port.status === 'open') openPorts++;
+                            else if (port.status === 'closed') closedPorts++;
+                        });
+                    }
+                });
+                updateOSChart(osCounts);
+                updatePortStatusChart({ open: openPorts, closed: closedPorts });
+            }
+
+            function updateTotalPacketsUI(data) {
+                if (!data || !elements.totalPackets || !elements.threshold) return;
+                const formattedTotal = formatPacketCount(data.total_packets ?? 0);
+                elements.totalPackets.textContent = formattedTotal;
+                elements.threshold.textContent = data.threshold ?? 'N/A';
+            }
+
+            function updateNextScanInfoUI(data) {
+                if (!data || !elements.currentIp || !elements.nextScanIn) return;
+                elements.currentIp.textContent = data.current_ip || 'Idle';
+                elements.nextScanIn.textContent = data.next_scan_in === "Scan is stopped" ? "Stopped" : (data.next_scan_in ?? '--');
+            }
+
+            function updateBlockedMacUI(data) {
+                if (!data || !data.blocked_mac || !elements.blockedMacUl) return;
+                elements.blockedMacUl.innerHTML = '';
+                if (data.blocked_mac.length > 0) {
+                    data.blocked_mac.forEach(mac => {
+                        const li = document.createElement('li');
+                        li.textContent = mac;
+                        const removeBtn = document.createElement('button');
+                        removeBtn.textContent = 'Remove';
+                        removeBtn.className = 'button-danger';
+                        removeBtn.onclick = () => removeFromBlockedMac(mac);
+                        li.appendChild(removeBtn);
+                        elements.blockedMacUl.appendChild(li);
+                    });
+                } else {
+                    elements.blockedMacUl.innerHTML = '<li>No blocked MAC addresses.</li>';
+                }
+            }
+
+            function updateBlockedIpUI(data) {
+                if (!data || !data.blocked_ip || !elements.blockedIpUl) return;
+                elements.blockedIpUl.innerHTML = '';
+                if (data.blocked_ip.length > 0) {
+                    data.blocked_ip.forEach(ip => {
+                        const li = document.createElement('li');
+                        li.textContent = ip;
+                        const removeBtn = document.createElement('button');
+                        removeBtn.textContent = 'Remove';
+                        removeBtn.className = 'button-danger';
+                        removeBtn.onclick = () => removeFromBlockedIp(ip);
+                        li.appendChild(removeBtn);
+                        elements.blockedIpUl.appendChild(li);
+                    });
+                } else {
+                    elements.blockedIpUl.innerHTML = '<li>No blocked IP addresses.</li>';
+                }
+            }
+
+            function updateBlockedPortsUI(data) {
+                if (!data || !data.blocked_ports || !elements.blockedPortsUl) return;
+                elements.blockedPortsUl.innerHTML = '';
+                if (data.blocked_ports.length > 0) {
+                    data.blocked_ports.forEach(port => {
+                        const li = document.createElement('li');
+                        li.textContent = port;
+                        const removeBtn = document.createElement('button');
+                        removeBtn.textContent = 'Remove';
+                        removeBtn.className = 'button-danger';
+                        removeBtn.onclick = () => removeFromBlockedPorts(port);
+                        li.appendChild(removeBtn);
+                        elements.blockedPortsUl.appendChild(li);
+                    });
+                } else {
+                    elements.blockedPortsUl.innerHTML = '<li>No blocked ports.</li>';
+                }
+            }
+
+            function updateSpecifiedPortsUI(data) {
+                if (!data || !data.specified_ports || !elements.specifiedPortsUl) return;
+                specifiedPorts = new Set(data.specified_ports);
+                elements.specifiedPortsUl.innerHTML = '';
+                if (data.specified_ports.length > 0) {
+                    data.specified_ports.forEach(port => {
+                        const li = document.createElement('li');
+                        li.textContent = port;
+                        const removeBtn = document.createElement('button');
+                        removeBtn.textContent = 'Remove';
+                        removeBtn.className = 'button-danger';
+                        removeBtn.onclick = () => removeFromSpecifiedPorts(port);
+                        li.appendChild(removeBtn);
+                        elements.specifiedPortsUl.appendChild(li);
+                    });
+                } else {
+                    elements.specifiedPortsUl.innerHTML = '<li>No specified ports.</li>';
+                }
+            }
+
+            function updateBackupInfoUI(data) {
+                if (!data || !elements.nextBackupCheck || !elements.backupFilesUl) return;
+                elements.nextBackupCheck.textContent = data.next_check_in ?? '--';
+                elements.backupFilesUl.innerHTML = '';
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(file => {
+                        const li = document.createElement('li');
+                        li.textContent = file;
+                        elements.backupFilesUl.appendChild(li);
+                    });
+                } else {
+                    elements.backupFilesUl.innerHTML = '<li>No backup files configured or found.</li>';
+                }
+            }
+
+            function updateWhitelistUI(data) {
+                if (!data || !data.whitelist || !elements.whitelistUl) return;
+                elements.whitelistUl.innerHTML = '';
+                if (data.whitelist.length > 0) {
+                    data.whitelist.forEach(mac => {
+                        const li = document.createElement('li');
+                        li.textContent = mac;
+                        const removeBtn = document.createElement('button');
+                        removeBtn.textContent = 'Remove';
+                        removeBtn.className = 'button-danger';
+                        removeBtn.onclick = () => removeFromWhitelist(mac);
+                        li.appendChild(removeBtn);
+                        elements.whitelistUl.appendChild(li);
+                    });
+                } else {
+                    elements.whitelistUl.innerHTML = '<li>Whitelist is empty.</li>';
+                }
+            }
+
+            function updateScanStatusUI(data) {
+                if (!data || !elements.scanStatus) return;
+                const status = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                elements.scanStatus.textContent = status;
+                elements.startScanBtn.disabled = data.status === "running";
+                elements.stopScanBtn.disabled = data.status === "stopped";
+            }
+
+            function updateAutoBlockIpToggle(enabled) {
+                if (elements.autoBlockIpToggle) {
+                    elements.autoBlockIpToggle.checked = enabled;
+                }
+            }
+
+            function updateAlertsUI(alerts) {
+                if (!elements.alertsTbody) return;
+                elements.alertsTbody.innerHTML = '';
+                const unseenAlerts = alerts.filter(a => parseInt(a.seen) === 0);
+                if (unseenAlerts.length === 0) {
+                    elements.alertsTbody.innerHTML = '<tr><td colspan="4">No unseen alerts.</td></tr>';
+                    return;
+                }
+                unseenAlerts.forEach(alert => {
+                    const row = elements.alertsTbody.insertRow();
+                    const timestampCell = row.insertCell();
+                    const typeCell = row.insertCell();
+                    const detailsCell = row.insertCell();
+                    const statusCell = row.insertCell();
+                    timestampCell.textContent = alert.timestamp;
+                    typeCell.textContent = alert.alert_type;
+                    detailsCell.textContent = alert.details;
+                    const seenButton = document.createElement('button');
+                    seenButton.textContent = 'Mark as Seen';
+                    seenButton.addEventListener('click', () => markAlertSeen(alert.id));
+                    statusCell.appendChild(seenButton);
+                });
+                updateNotificationBell(unseenAlerts);
+                showAlertWindow(unseenAlerts);
+            }
+
+            function updateNotificationBell(alerts) {
+                const unseenCount = alerts.length;
+                if (elements.unseenCount) {
+                    elements.unseenCount.textContent = unseenCount > 0 ? unseenCount : '';
+                    elements.unseenCount.style.display = unseenCount > 0 ? 'inline' : 'none';
+                }
+                if (elements.recentAlerts) {
+                    elements.recentAlerts.innerHTML = '';
+                    const recentUnseen = alerts.slice(0, 5);
+                    recentUnseen.forEach(alert => {
+                        const li = document.createElement('li');
+                        li.textContent = `${alert.alert_type}: ${alert.details}`;
+                        elements.recentAlerts.appendChild(li);
+                    });
+                }
+            }
+
+            function showAlertWindow(alerts) {
+                const latestAlert = alerts[0];
+                if (latestAlert && latestAlert.id > lastAlertId) {
+                    lastAlertId = latestAlert.id;
+                    if (elements.alertWindow && elements.alertMessage) {
+                        elements.alertMessage.textContent = `${latestAlert.alert_type}: ${latestAlert.details}`;
+                        elements.alertWindow.style.display = 'block';
+                    }
+                }
+            }
+
+            function hideAlertWindow() {
+                if (elements.alertWindow) {
+                    elements.alertWindow.style.display = 'none';
+                }
+            }
+
+            if (elements.closeBtn) {
+                elements.closeBtn.addEventListener('click', hideAlertWindow);
+            }
+
+            window.blockDevice = async function(type, value) {
+                console.log(`Attempting to block ${type}: ${value}`);
+                if (!value) {
+                    showMessage('Cannot block device with invalid value.', 'error');
+                    return;
+                }
+                const formData = new URLSearchParams();
+                formData.append('type', type);
+                formData.append('value', type === 'MAC' ? normalizeMac(value) : value.trim());
+                const initialResult = await safeFetch('/block_device', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (initialResult) {
+                    if (initialResult.confirm === true) {
+                        const userConfirmed = confirm(`MAC ${value} is in the whitelist. Are you sure you want to block it? This will remove it from the whitelist.`);
+                        if (userConfirmed) {
+                            formData.append('force_block', 'true');
+                            const confirmResult = await safeFetch('/block_device', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: formData.toString()
+                            });
+                            if (confirmResult) {
+                                showMessage(confirmResult.message || `MAC ${value} blocked and removed from whitelist.`, 'success');
+                                fetchBlockedMac();
+                                fetchWhitelist();
+                            }
+                        }
+                    } else {
+                        showMessage(initialResult.message || `Device ${type} ${value} block requested.`, 'success');
+                        if (type === 'MAC') fetchBlockedMac();
+                        else if (type === 'IP') fetchBlockedIp();
+                    }
+                }
+            }
+
+            window.removeFromBlockedMac = async function(mac) {
+                if (!confirm(`Are you sure you want to unblock MAC ${mac}?`)) return;
+                const formData = new URLSearchParams();
+                formData.append('mac', normalizeMac(mac));
+                const result = await safeFetch('/remove_from_blocked_mac', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `MAC ${mac} removed from blocked list.`, 'success');
+                    fetchBlockedMac();
+                }
+            }
+
+            window.removeFromBlockedIp = async function(ip) {
+                if (!confirm(`Are you sure you want to unblock IP ${ip}?`)) return;
+                const formData = new URLSearchParams();
+                formData.append('ip', ip.trim());
+                const result = await safeFetch('/remove_from_blocked_ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `IP ${ip} removed from blocked list.`, 'success');
+                    fetchBlockedIp();
+                }
+            }
+
+            window.removeFromBlockedPorts = async function(port) {
+                if (!confirm(`Are you sure you want to unblock port ${port}?`)) return;
+                const formData = new URLSearchParams();
+                formData.append('port', port);
+                const result = await safeFetch('/remove_from_blocked_ports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `Port ${port} removed from blocked list.`, 'success');
+                    fetchBlockedPorts();
+                }
+            }
+
+            window.removeFromWhitelist = async function(mac) {
+                if (!confirm(`Are you sure you have to remove MAC ${mac} from the whitelist?`)) return;
+                const formData = new URLSearchParams();
+                formData.append('mac', normalizeMac(mac));
+                const result = await safeFetch('/remove_from_whitelist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `MAC ${mac} removed from whitelist.`, 'success');
+                    fetchWhitelist();
+                }
+            }
+
+            window.removeFromSpecifiedPorts = async function(port) {
+                if (!confirm(`Are you sure you want to remove port ${port} from specified ports?`)) return;
+                const formData = new URLSearchParams();
+                formData.append('port', port);
+                const result = await safeFetch('/remove_specified_port', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `Port ${port} removed from specified ports.`, 'success');
+                    fetchSpecifiedPorts();
+                }
+            }
+
+            async function updateScanSettings(formData) {
+                const result = await safeFetch('/update_scan_settings', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (result) showMessage(result.message || 'Scan settings updated successfully.', 'success');
+            }
+
+            async function addToBlockedMac(mac) {
+                mac = normalizeMac(mac);
+                if (!mac) {
+                    showMessage('Invalid MAC address format.', 'error');
+                    return;
+                }
+                const formData = new URLSearchParams();
+                formData.append('mac', mac);
+                const result = await safeFetch('/add_to_blocked_mac', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `MAC ${mac} added to blocked list.`, 'success');
+                    fetchBlockedMac();
+                }
+            }
+
+            async function addToBlockedIp(ip) {
+                const formData = new URLSearchParams();
+                formData.append('ip', ip.trim());
+                const result = await safeFetch('/add_to_blocked_ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `IP ${ip} added to blocked list.`, 'success');
+                    fetchBlockedIp();
+                }
+            }
+
+            async function addToBlockedPorts(port) {
+                const formData = new URLSearchParams();
+                formData.append('port', port);
+                const result = await safeFetch('/add_to_blocked_ports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `Port ${port} added to blocked list.`, 'success');
+                    fetchBlockedPorts();
+                }
+            }
+
+            async function addToWhitelist(formData) {
+                const macInput = normalizeMac(formData.get('mac'));
+                if (!macInput) {
+                    showMessage('Invalid MAC address format.', 'error');
+                    return;
+                }
+                formData.set('mac', macInput);
+                const result = await safeFetch('/add_to_whitelist', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (result) {
+                    showMessage(result.message || `MAC ${macInput} added to whitelist.`, 'success');
+                    fetchWhitelist();
+                    elements.whitelistForm.reset();
+                }
+            }
+
+            async function addToSpecifiedPorts(port) {
+                const formData = new URLSearchParams();
+                formData.append('port', port);
+                const result = await safeFetch('/add_specified_port', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `Port ${port} added to specified ports.`, 'success');
+                    fetchSpecifiedPorts();
+                }
+            }
+
+            async function toggleAutoBlockIp(enabled) {
+                const formData = new URLSearchParams();
+                formData.append('enabled', enabled);
+                const result = await safeFetch('/toggle_auto_block_ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || `Automatic IP blocking ${enabled ? 'enabled' : 'disabled'}.`, 'success');
+                    elements.autoBlockIpToggle.checked = result.enabled;
+                } else {
+                    elements.autoBlockIpToggle.checked = !enabled;
+                }
+            }
+
+            async function updateThreshold() {
+                const newThreshold = elements.newThreshold.value;
+                if (newThreshold && !isNaN(newThreshold) && newThreshold > 0) {
+                    const formData = new URLSearchParams();
+                    formData.append('threshold', newThreshold);
+                    const result = await safeFetch('/update_threshold', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData.toString()
+                    });
+                    if (result) {
+                        showMessage(result.message || `Threshold updated to ${newThreshold}.`, 'success');
+                        elements.threshold.textContent = newThreshold;
+                        elements.newThreshold.value = '';
+                    }
+                } else {
+                    showMessage('Please enter a valid positive number for the threshold.', 'error');
+                }
+            }
+
+            async function fetchAutoBlockIpStatus() {
+                const data = await safeFetch('/get_auto_block_ip_status');
+                if (data) updateAutoBlockIpToggle(data.enabled);
+            }
+
+            async function startScan() {
+                const result = await safeFetch('/start_scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message, 'success');
+                    fetchScanStatus();
+                }
+            }
+
+            function updatePacketCountsUI(packetCounts) {
+                const packetList = document.getElementById('packetCounts');
+                if (!packetList) return;
+                packetList.innerHTML = '';
+                if (packetCounts && typeof packetCounts === 'object' && Object.keys(packetCounts).length > 0) {
+                    Object.entries(packetCounts).forEach(([ip, count]) => {
+                        const li = document.createElement('li');
+                        li.textContent = `${ip}: ${count} packets`;
+                        packetList.appendChild(li);
+                    });
+                } else {
+                    packetList.innerHTML = '<li>No packet counts available.</li>';
+                }
+            }
+
+            async function stopScan() {
+                const result = await safeFetch('/stop_scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message, 'success');
+                    fetchScanStatus();
+                }
+            }
+
+            async function fetchScanResults() {
+                const data = await safeFetch('/get_latest_scan');
+                if (data) updateScanResultsUI(data);
+            }
+
+            async function fetchPacketCounts() {
+                const data = await safeFetch('/get_packet_counts');
+                if (data && data.packet_counts) {
+                    updatePacketCountsUI(data.packet_counts);
+                    updateTrafficChart(data.packet_counts);
+                }
+            }
+
+            async function fetchTotalPackets() {
+                const data = await safeFetch('/get_total_packets');
+                if (data) updateTotalPacketsUI(data);
+            }
+
+            async function fetchNextScanInfo() {
+                const data = await safeFetch('/get_next_scan_info');
+                if (data) updateNextScanInfoUI(data);
+            }
+
+            async function fetchBlockedMac() {
+                const data = await safeFetch('/get_blocked_mac');
+                if (data) updateBlockedMacUI(data);
+            }
+
+            async function fetchBlockedIp() {
+                const data = await safeFetch('/get_blocked_ip');
+                if (data) updateBlockedIpUI(data);
+            }
+
+            async function fetchBlockedPorts() {
+                const data = await safeFetch('/get_blocked_ports');
+                if (data) updateBlockedPortsUI(data);
+            }
+
+            async function fetchSpecifiedPorts() {
+                const data = await safeFetch('/get_specified_ports');
+                if (data) updateSpecifiedPortsUI(data);
+            }
+
+            async function fetchBackupInfo() {
+                const data = await safeFetch('/get_backup_info');
+                if (data) updateBackupInfoUI(data);
+            }
+
+            async function fetchWhitelist() {
+                const data = await safeFetch('/get_whitelist');
+                if (data) updateWhitelistUI(data);
+            }
+
+            async function fetchScanStatus() {
+                const data = await safeFetch('/get_scan_status');
+                if (data) updateScanStatusUI(data);
+            }
+
+            async function fetchAlerts() {
+                const data = await safeFetch('/get_alerts');
+                if (data && data.alerts) updateAlertsUI(data.alerts);
+            }
+
+            async function markAlertSeen(alertId) {
+                const formData = new URLSearchParams();
+                formData.append('alert_id', alertId);
+                const result = await safeFetch('/mark_alert_seen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (result) {
+                    showMessage(result.message || 'Alert marked as seen', 'success');
+                    fetchAlerts();
+                }
+            }
+
+            async function markAllAlertsSeen() {
+                const result = await safeFetch('/mark_all_alerts_seen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message || 'All alerts marked as seen', 'success');
+                    fetchAlerts();
+                }
+            }
+
+            async function clearBlockedMac() {
+                if (!confirm('Are you sure you want to clear all blocked MAC addresses?')) return;
+                const result = await safeFetch('/clear_blocked_mac', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message || 'All blocked MAC addresses cleared.', 'success');
+                    fetchBlockedMac();
+                }
+            }
+
+            async function clearBlockedIp() {
+                if (!confirm('Are you sure you want to clear all blocked IP addresses?')) return;
+                const result = await safeFetch('/clear_blocked_ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message || 'All blocked IP addresses cleared.', 'success');
+                    fetchBlockedIp();
+                }
+            }
+
+            async function clearBlockedPorts() {
+                if (!confirm('Are you sure you want to clear all blocked ports?')) return;
+                const result = await safeFetch('/clear_blocked_ports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message || 'All blocked ports cleared.', 'success');
+                    fetchBlockedPorts();
+                }
+            }
+
+            async function clearSpecifiedPorts() {
+                if (!confirm('Are you sure you want to clear all specified ports?')) return;
+                const result = await safeFetch('/clear_specified_ports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                if (result) {
+                    showMessage(result.message || 'All specified ports cleared.', 'success');
+                    fetchSpecifiedPorts();
+                }
+            }
+
+            async function pollData() {
+                if (!isPolling) return;
+                await Promise.all([
+                    fetchScanResults(),
+                    fetchPacketCounts(),
+                    fetchTotalPackets(),
+                    fetchNextScanInfo(),
+                    fetchBlockedMac(),
+                    fetchBlockedIp(),
+                    fetchBlockedPorts(),
+                    fetchSpecifiedPorts(),
+                    fetchBackupInfo(),
+                    fetchWhitelist(),
+                    fetchScanStatus(),
+                    fetchAlerts(),
+                    fetchAutoBlockIpStatus()
+                ]);
+                setTimeout(pollData, POLL_INTERVAL);
+            }
+
+            function initCharts() {
+                if (!window.Chart) {
+                    console.error("Chart.js not loaded!");
+                    return;
+                }
+                const chartOptions = (title) => ({
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: false },
+                        legend: { position: 'bottom', labels: { color: getComputedStyle(document.body).getPropertyValue('--text-primary') } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-secondary') }, grid: { color: getComputedStyle(document.body).getPropertyValue('--border-color') } },
+                        x: { ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-secondary') }, grid: { color: getComputedStyle(document.body).getPropertyValue('--border-color') } }
+                    }
+                });
+
+                if (elements.trafficChartCanvas) {
+                    charts.traffic = new Chart(elements.trafficChartCanvas.getContext('2d'), {
+                        type: 'bar',
+                        data: { labels: [], datasets: [{ label: 'Packet Count', data: [], backgroundColor: 'rgba(74, 144, 226, 0.6)', borderColor: 'rgba(74, 144, 226, 1)', borderWidth: 1 }] },
+                        options: chartOptions('Traffic per IP')
+                    });
+                }
+
+                if (elements.osDistributionChartCanvas) {
+                    charts.os = new Chart(elements.osDistributionChartCanvas.getContext('2d'), {
+                        type: 'pie',
+                        data: { labels: [], datasets: [{ label: 'OS Distribution', data: [], backgroundColor: ['rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)'], borderColor: getComputedStyle(document.body).getPropertyValue('--bg-secondary'), borderWidth: 1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: getComputedStyle(document.body).getPropertyValue('--text-primary') } } } }
+                    });
+                }
+
+                if (elements.portStatusChartCanvas) {
+                    charts.portStatus = new Chart(elements.portStatusChartCanvas.getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Open Ports', 'Closed Ports'],
+                            datasets: [{
+                                label: 'Port Status',
+                                data: [0, 0],
+                                backgroundColor: [
+                                    'rgba(75, 192, 192, 0.7)', // Teal for open ports
+                                    'rgba(255, 99, 132, 0.7)'  // Red for closed ports
+                                ],
+                                borderColor: getComputedStyle(document.body).getPropertyValue('--bg-secondary'),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: getComputedStyle(document.body).getPropertyValue('--text-primary') } }
+                            }
+                        }
+                    });
+                }
+            }
+
+            function updateChartData(chartInstance, newLabels, newData) {
+                if (chartInstance) {
+                    chartInstance.data.labels = newLabels;
+                    chartInstance.data.datasets.forEach(dataset => dataset.data = newData);
+                    chartInstance.update();
+                }
+            }
+
+            function updateTrafficChart(packetCounts) {
+                if (packetCounts && typeof packetCounts === 'object') {
+                    const sortedEntries = Object.entries(packetCounts).sort((a, b) => b[1] - a[1]);
+                    updateChartData(charts.traffic, sortedEntries.map(entry => entry[0]), sortedEntries.map(entry => entry[1]));
+                } else {
+                    updateChartData(charts.traffic, [], []);
+                }
+            }
+
+            function updateOSChart(osCounts) {
+                updateChartData(charts.os, Object.keys(osCounts), Object.values(osCounts));
+            }
+
+            function updatePortStatusChart(portCounts) {
+                const labels = ['Open Ports', 'Closed Ports'];
+                const data = [portCounts.open || 0, portCounts.closed || 0];
+                if (charts.portStatus) {
+                    charts.portStatus.data.labels = labels;
+                    charts.portStatus.data.datasets[0].data = data;
+                    charts.portStatus.update();
+                }
+            }
+
+            function updateChartTheme() {
+                const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                const mutedColor = getComputedStyle(document.body).getPropertyValue('--text-secondary');
+                const gridColor = getComputedStyle(document.body).getPropertyValue('--border-color');
+                const bgColor = getComputedStyle(document.body).getPropertyValue('--bg-secondary');
+                Object.values(charts).forEach(chart => {
+                    if (chart && chart.options) {
+                        if (chart.options.plugins && chart.options.plugins.legend) chart.options.plugins.legend.labels.color = textColor;
+                        if (chart.options.scales) Object.values(chart.options.scales).forEach(axis => {
+                            if (axis.ticks) axis.ticks.color = mutedColor;
+                            if (axis.grid) axis.grid.color = gridColor;
+                        });
+                        chart.data.datasets.forEach(dataset => {
+                            if (chart.config.type === 'pie' || chart.config.type === 'doughnut') dataset.borderColor = bgColor;
+                        });
+                        chart.update();
+                    }
+                });
+            }
+
+            function applyTheme(theme) {
+                document.body.className = `theme-${theme}`;
+                localStorage.setItem('dashboardTheme', theme);
+                updateChartTheme();
+                const lightIcon = document.querySelector('#themeToggleBtn .light-mode-icon');
+                const darkIcon = document.querySelector('#themeToggleBtn .dark-mode-icon');
+                if (lightIcon && darkIcon) {
+                    if (theme === 'light') {
+                        lightIcon.style.display = 'none';
+                        darkIcon.style.display = 'inline';
+                    } else {
+                        lightIcon.style.display = 'inline';
+                        darkIcon.style.display = 'none';
+                    }
+                }
+            }
+
+            function toggleTheme() {
+                const currentTheme = localStorage.getItem('dashboardTheme') || 'light';
+                applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+            }
+
+            elements.scanSettingsForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                await updateScanSettings(new FormData(elements.scanSettingsForm));
+            });
+
+            elements.whitelistForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                await addToWhitelist(new FormData(elements.whitelistForm));
+            });
+
+            elements.addBlockedMacForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const mac = elements.addBlockedMacForm.mac.value;
+                if (mac) {
+                    await addToBlockedMac(mac);
+                    elements.addBlockedMacForm.reset();
+                }
+            });
+
+            elements.addBlockedIpForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const ip = elements.addBlockedIpForm.ip.value;
+                if (ip) {
+                    await addToBlockedIp(ip);
+                    elements.addBlockedIpForm.reset();
+                }
+            });
+
+            elements.addBlockedPortForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const port = elements.addBlockedPortForm.port.value;
+                if (port) {
+                    await addToBlockedPorts(port);
+                    elements.addBlockedPortForm.reset();
+                }
+            });
+
+            elements.addSpecifiedPortForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const port = elements.addSpecifiedPortForm.port.value;
+                if (port) {
+                    await addToSpecifiedPorts(port);
+                    elements.addSpecifiedPortForm.reset();
+                }
+            });
+
+            elements.clearBlockedMacBtn?.addEventListener('click', clearBlockedMac);
+            elements.clearBlockedIpBtn?.addEventListener('click', clearBlockedIp);
+            elements.clearBlockedPortsBtn?.addEventListener('click', clearBlockedPorts);
+            elements.clearSpecifiedPortsBtn?.addEventListener('click', clearSpecifiedPorts);
+
+            elements.themeToggleBtn?.addEventListener('click', toggleTheme);
+            elements.autoBlockToggle?.addEventListener('change', e => toggleAutoBlock(e.target.checked));
+            elements.autoBlockIpToggle?.addEventListener('change', e => toggleAutoBlockIp(e.target.checked));
+            elements.startScanBtn?.addEventListener('click', startScan);
+            elements.stopScanBtn?.addEventListener('click', stopScan);
+            elements.notificationBell?.addEventListener('click', () => {
+                elements.notificationDropdown.style.display = elements.notificationDropdown.style.display === 'none' ? 'block' : 'none';
+            });
+            elements.markAllSeenBtn?.addEventListener('click', markAllAlertsSeen);
+            elements.updateThresholdBtn?.addEventListener('click', updateThreshold);
+
+            const savedTheme = localStorage.getItem('dashboardTheme');
+            applyTheme(savedTheme || 'light');
+            initCharts();
+            pollData();
+        });
+    </script>
+</body>
+</html>

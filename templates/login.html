@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Secure Login</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to bottom, #1a1a1a, #333);
+        }
+        .login-container {
+            background-color: white;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s ease-in forwards;
+        }
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .logo {
+            margin-bottom: 20px;
+        }
+        .logo img {
+            max-width: 100px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .subtitle {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 25px 10px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .input-group label {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            transition: 0.2s;
+            pointer-events: none;
+            color: #999;
+            line-height: 1;
+        }
+        .input-group input:focus + label,
+        .input-group input:not(:placeholder-shown) + label {
+            top: 5px;
+            transform: translateY(0);
+            font-size: 0.8em;
+            color: #4a90e2;
+        }
+        .input-group input:focus {
+            border-color: #4a90e2;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #357abd;
+        }
+        .flash-messages {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+        .flash-messages li {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            position: relative;
+            padding-left: 30px;
+        }
+        .flash-messages li.error {
+            color: #d9534f;
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+        }
+        .flash-messages li.success {
+            color: #3c763d;
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+        }
+        .flash-messages li.error::before {
+            content: "⚠️";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .flash-messages li.success::before {
+            content: "✔️";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        @media (max-width: 600px) {
+            .login-container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+        .logo{
+            color:#357abd;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h2>Self-Healing Based Network Security System<h2/>
+        </div>
+        <h1>Secure Login</h1>
+        <p class="subtitle">Access your security dashboard</p>
+        <form method="POST">
+            <div class="input-group">
+                <input type="text" id="username" name="username" placeholder=" " required>
+                <label for="username">Username</label>
+            </div>
+            <div class="input-group">
+                <input type="password" id="password" name="password" placeholder=" " required>
+                <label for="password">Password</label>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flash-messages">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>

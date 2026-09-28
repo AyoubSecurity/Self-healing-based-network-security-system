@@ -10,3 +10,30 @@ An autonomous, modular network security engine built in Python to detect real-ti
 
 ## Architecture
 Designed using strict software design patterns and UML modeling (StarUML), separating the scanner, traffic monitor, database engine, socket engine, and web dashboard into decoupled components.
+
+## Setup
+
+Set up virtual environment (venv):
+
+> **Admin PowerShell / CMD**
+> python -m venv venv
+> .\venv\Scripts\activate
+> pip install -r requirements.txt
+
+Linux / macOS:
+> **Bash**
+> python3 -m venv venv
+> source venv/bin/activate
+> pip install -r requirements.txt
+
+## Launch the application:
+
+> **Windows:** 
+> python app.py
+
+> **Linux / macOS:** 
+> sudo ./venv/bin/python app.py
+
+Access Dashboard: Open http://localhost:5000 (User: admin | Password: admin).
+
+

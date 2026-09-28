@@ -16,9 +16,9 @@ Designed using strict software design patterns and UML modeling (StarUML), separ
 Set up virtual environment (venv):
 
 **Admin PowerShell / CMD**
-> python -m venv venv
-> .\venv\Scripts\activate
-> pip install -r requirements.txt
+> python -m venv venv </br>
+> .\venv\Scripts\activate </br>
+> pip install -r requirements.txt </br>
 
 Linux / macOS:
 **Bash**

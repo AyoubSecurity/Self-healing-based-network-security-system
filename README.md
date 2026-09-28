@@ -15,23 +15,23 @@ Designed using strict software design patterns and UML modeling (StarUML), separ
 
 Set up virtual environment (venv):
 
-> **Admin PowerShell / CMD**
+**Admin PowerShell / CMD**
 > python -m venv venv
 > .\venv\Scripts\activate
 > pip install -r requirements.txt
 
 Linux / macOS:
-> **Bash**
+**Bash**
 > python3 -m venv venv
 > source venv/bin/activate
 > pip install -r requirements.txt
 
 ## Launch the application:
 
-> **Windows:** 
+**Windows:** 
 > python app.py
 
-> **Linux / macOS:** 
+**Linux / macOS:** 
 > sudo ./venv/bin/python app.py
 
 Access Dashboard: Open http://localhost:5000 (User: admin | Password: admin).
